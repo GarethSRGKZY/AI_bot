@@ -69,12 +69,12 @@ def transcribe_audio(file):
         print("Error transcribing audio: {0}".format(e))
         return
     
-    result = owner_name + "said" + chat_now
+    result = owner_name + " said:" + chat_now
     conversation.append({'role': 'user', 'content': result})
     ai_answer()
 
 def ai_answer():
-    global total_char, conversation
+    global total_char, conversation, chat_now
     
     total_char = sum(len(d['content']) for d in conversation)
     
@@ -88,20 +88,31 @@ def ai_answer():
     with open("conversation.json", "w", encoding="utf-8") as f:
         json.dump(history, f, indent=4)
 
-    prompt = getPrompt()
-    client = openai.OpenAI(api_key=API_KEY)
+    with open('background/background.txt', 'r') as background:
+        context = background.read().strip()
 
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=prompt,
-        temperature=1,
-        max_tokens=256,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0
+    pre_prompt = context
+    prompt_input = chat_now
+
+    output = replicate.run(
+    "meta/llama-2-70b-chat:02e509c789964a7ea8736978a43525956ef40397be9033abf9fd2badfe68c9e3",
+    input={
+        "debug": False,
+        "top_k": 50,
+        "top_p": 1,
+        "prompt": f"{prompt_input}",
+        "temperature": 0.5,
+        "system_prompt": f"{pre_prompt}",
+        "max_new_tokens": 500,
+        "min_new_tokens": -1
+        }
     )
+    message = ""
 
-    message = response['choices'][0]['message']['content']
+    for item in output:
+        message += item
+    
+    print(message)
     conversation.append({'role': f'{name}', 'content': message})
 
 if __name__ == "__main__":
